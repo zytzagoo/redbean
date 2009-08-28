@@ -499,7 +499,7 @@ function testsperengine() {
 	} 
 	SmartTest::instance()->progress();
 	
-	R::gen("Person");
+	R::gen("PERSON");
 	$dummy = new Person;
 	$dummy->age = 40;
 	SmartTest::instance()->test(count(Person::find( $dummy, array("age"=>">"))),1);
@@ -894,7 +894,6 @@ function testsperengine() {
 	$cheese = new Cheese(1);
 	$cheese->setName("Cheddar");
 	
-	echo '---';
 	$cheese->save();
 	RedBean_OODB::setLockingTime(10); //*
 	
@@ -1199,5 +1198,5 @@ testsperengine();
 
 
 
-printtext("ALL TESTS PASSED. REDBEAN SHOULD WORK FINE.");
+printtext("ALL TESTS PASSED. REDBEAN SHOULD WORK FINE.\n\n");
 ?>

@@ -12,7 +12,7 @@ class RedBean_OODB {
 	 *
 	 * @var float
 	 */
-	private static $version = 0.5;
+	private static $version = 0.6;
 
 	/**
 	 *
@@ -1656,16 +1656,33 @@ class RedBean_OODB {
 		 * @param string $classes
 		 * @return unknown_type
 		 */
-		public static function gen( $classes ) {
+		/**
+		 * Accepts a comma separated list of class names and
+		 * creates a default model for each classname mentioned in
+		 * this list. Note that you should not gen() classes
+		 * for which you already created a model (by inheriting
+		 * from ReadBean_Decorator).
+		 * @param string $classes
+		 * @return unknown_type
+		 */
+		public static function gen( $classes ) { 
 			$classes = explode(",",$classes);
 			foreach($classes as $c) {
-				if ($c!=="" && $c!=="null" && !class_exists($c) && preg_match("/^\s*[A-Za-z_][A-Za-z0-9_]*\s*$/",$c)){
+				$ns = '';
+				$names = explode('\\', $c);
+				$className = trim(end($names));
+				if(count($names) > 1)
+				{
+					$ns = 'namespace ' . implode('\\', array_slice($names, 0, -1)) . ";\n";
+				}
+				if ($c!=="" && $c!=="null" && !class_exists($c) && 
+								preg_match("/^\s*[A-Za-z_][A-Za-z0-9_]*\s*$/",$className)){ 
 					try{
-						eval("final class ".$c." extends RedBean_Decorator {
-							private static \$__static_property_type = \"".strtolower($c)."\";
+						$toeval = $ns . "final class ".$className." extends " . (empty($ns) ? '' : '\\') . "RedBean_Decorator {
+							private static \$__static_property_type = \"".strtolower($className)."\";
 							
 							public function __construct(\$id=0, \$lock=false) {
-								parent::__construct('".strtolower($c)."',\$id,\$lock);
+								parent::__construct('".strtolower($className)."',\$id,\$lock);
 							}
 							
 							//no late static binding... great..
@@ -1677,8 +1694,8 @@ class RedBean_OODB {
 								return RedBean_OODB::listAll(self::\$__static_property_type,\$start,\$end,\$orderby,\$sql);
 							}
 							
-					}");
-							
+						}";
+						eval($toeval);	
 						if (!class_exists($c)) return false;
 					}
 					catch(Exception $e){
@@ -1691,6 +1708,7 @@ class RedBean_OODB {
 			}
 			return true;
 		}
+		
 
 
 		/**
