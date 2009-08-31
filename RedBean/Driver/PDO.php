@@ -90,7 +90,7 @@ class Redbean_Driver_PDO implements RedBean_Driver {
     	try{ 
 	        if ($this->debug)
 	        {
-	            echo "<HR>" . $sql;
+	            echo "\n<HR>" . $sql;
 	        }
 	        $rs = $this->pdo->query($sql);
 	        $this->rs = $rs;
@@ -104,7 +104,7 @@ class Redbean_Driver_PDO implements RedBean_Driver {
 	        {
 	            if (count($rows) > 0)
 	            {
-	                echo "<br><b style='color:green'>resultset: " . count($rows) . " rows</b>";
+	                echo "\n<br><b style='color:green'>resultset: " . count($rows) . " rows</b>";
 	            }
 	            
 	        }
@@ -115,7 +115,7 @@ class Redbean_Driver_PDO implements RedBean_Driver {
 	           	 $str = $this->Errormsg();
 	           	 if ($str != "")
 	           	 {
-	           	     echo "<br><b style='color:red'>" . $str . "</b>";
+	           	     echo "\n<br><b style='color:red'>" . $str . "</b>";
 	           	 }
     			}
     	return array(); }
@@ -209,7 +209,7 @@ class Redbean_Driver_PDO implements RedBean_Driver {
     	try{
 	        if ($this->debug)
 	        {
-	            echo "<HR>" . $sql;
+	            echo "\n<HR>" . $sql;
 	        }
 	        $this->affected_rows = $this->pdo->exec($sql);
 	       
@@ -221,7 +221,7 @@ class Redbean_Driver_PDO implements RedBean_Driver {
 	            $str = $this->Errormsg();
 	            if ($str != "")
 	            {
-	                echo "<br><b style='color:red'>" . $str . "</b>";
+	                echo "\n<br><b style='color:red'>" . $str . "</b>";
 	            }
 	        }
     	return 0; }

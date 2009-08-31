@@ -61,6 +61,21 @@ class RedBean_Decorator extends RedBean_Observable implements IteratorAggregate 
 		$this->signal("deco_free", $this);
 		RedBean_OODB::dropColumn( $this->type, $property );
 	}
+	
+	/**
+	 * Converts a namespace to an appropriate table-database combination
+	 * @param string $fulltype
+	 * @return string $full_qualified_tablename
+	 */
+	protected function convertNS( $fulltype ) {
+		if (strpos($fulltype,"\\")!==false) {
+			$fulltype = str_replace("\\","_",$fulltype);
+			$firstpart = substr( $fulltype, 0, strrpos( $fulltype, "_" ));
+			$lastpart = substr( $fulltype, strrpos( $fulltype, "_" ) + 1 );
+			$fulltype = $firstpart . "." . $lastpart;
+		}
+		return $fulltype;
+	}
 
 	/**
 
@@ -149,15 +164,13 @@ class RedBean_Decorator extends RedBean_Observable implements IteratorAggregate 
 			$prop = substr( $method, 3 );
 			$this->$prop = $arguments[0];
 			return $this;
-
 		}
 		elseif (strpos($method,"getRelated")===0)	{
 			$this->signal("deco_get", $this);
 			$prop = strtolower( substr( $method, 10 ) );
-			$beans = RedBean_OODB::getAssoc( $this->data, $prop );
+			$beans = RedBean_OODB::getAssoc( $this->data, $this->convertNS( $prop ) );
 			$decos = array();
 			$dclass = PRFX.$prop.SFFX;
-
 			if ($beans && is_array($beans)) {
 				foreach($beans as $b) {
 					$d = new $dclass();
@@ -202,14 +215,14 @@ class RedBean_Decorator extends RedBean_Observable implements IteratorAggregate 
 		}
 		else if (strpos($method,"clearRelated")===0) {
 			$this->signal("deco_clearrelated",$this);
-			$type = strtolower( substr( $method, 12 ) );
+			$type = $this->convertNS( strtolower( substr( $method, 12 ) ) );
 			RedBean_OODB::deleteAllAssocType($type, $this->data);
 			return $this;
 		}
 		else if (strpos($method,"numof")===0) {
 			$this->signal("deco_numof",$this);
 			$type = strtolower( substr( $method, 5 ) );
-			return RedBean_OODB::numOfRelated($type, $this->data);
+			return RedBean_OODB::numOfRelated($this->convertNS( $type ), $this->data);
 				
 		}
 	}

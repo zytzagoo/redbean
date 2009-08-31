@@ -547,6 +547,21 @@ class RedBean_Decorator extends RedBean_Observable implements IteratorAggregate 
 		$this->signal("deco_free", $this);
 		RedBean_OODB::dropColumn( $this->type, $property );
 	}
+	
+	/**
+	 * Converts a namespace to an appropriate table-database combination
+	 * @param string $fulltype
+	 * @return string $full_qualified_tablename
+	 */
+	protected function convertNS( $fulltype ) {
+		if (strpos($fulltype,"\\")!==false) {
+			$fulltype = str_replace("\\","_",$fulltype);
+			$firstpart = substr( $fulltype, 0, strrpos( $fulltype, "_" ));
+			$lastpart = substr( $fulltype, strrpos( $fulltype, "_" ) + 1 );
+			$fulltype = $firstpart . "." . $lastpart;
+		}
+		return $fulltype;
+	}
 
 	/**
 
@@ -635,15 +650,13 @@ class RedBean_Decorator extends RedBean_Observable implements IteratorAggregate 
 			$prop = substr( $method, 3 );
 			$this->$prop = $arguments[0];
 			return $this;
-
 		}
 		elseif (strpos($method,"getRelated")===0)	{
 			$this->signal("deco_get", $this);
 			$prop = strtolower( substr( $method, 10 ) );
-			$beans = RedBean_OODB::getAssoc( $this->data, $prop );
+			$beans = RedBean_OODB::getAssoc( $this->data, $this->convertNS( $prop ) );
 			$decos = array();
 			$dclass = PRFX.$prop.SFFX;
-
 			if ($beans && is_array($beans)) {
 				foreach($beans as $b) {
 					$d = new $dclass();
@@ -688,14 +701,14 @@ class RedBean_Decorator extends RedBean_Observable implements IteratorAggregate 
 		}
 		else if (strpos($method,"clearRelated")===0) {
 			$this->signal("deco_clearrelated",$this);
-			$type = strtolower( substr( $method, 12 ) );
+			$type = $this->convertNS( strtolower( substr( $method, 12 ) ) );
 			RedBean_OODB::deleteAllAssocType($type, $this->data);
 			return $this;
 		}
 		else if (strpos($method,"numof")===0) {
 			$this->signal("deco_numof",$this);
 			$type = strtolower( substr( $method, 5 ) );
-			return RedBean_OODB::numOfRelated($type, $this->data);
+			return RedBean_OODB::numOfRelated($this->convertNS( $type ), $this->data);
 				
 		}
 	}
@@ -1135,7 +1148,7 @@ class Redbean_Driver_PDO implements RedBean_Driver {
     	try{ 
 	        if ($this->debug)
 	        {
-	            echo "<HR>" . $sql;
+	            echo "\n<HR>" . $sql;
 	        }
 	        $rs = $this->pdo->query($sql);
 	        $this->rs = $rs;
@@ -1149,7 +1162,7 @@ class Redbean_Driver_PDO implements RedBean_Driver {
 	        {
 	            if (count($rows) > 0)
 	            {
-	                echo "<br><b style='color:green'>resultset: " . count($rows) . " rows</b>";
+	                echo "\n<br><b style='color:green'>resultset: " . count($rows) . " rows</b>";
 	            }
 	            
 	        }
@@ -1160,7 +1173,7 @@ class Redbean_Driver_PDO implements RedBean_Driver {
 	           	 $str = $this->Errormsg();
 	           	 if ($str != "")
 	           	 {
-	           	     echo "<br><b style='color:red'>" . $str . "</b>";
+	           	     echo "\n<br><b style='color:red'>" . $str . "</b>";
 	           	 }
     			}
     	return array(); }
@@ -1254,7 +1267,7 @@ class Redbean_Driver_PDO implements RedBean_Driver {
     	try{
 	        if ($this->debug)
 	        {
-	            echo "<HR>" . $sql;
+	            echo "\n<HR>" . $sql;
 	        }
 	        $this->affected_rows = $this->pdo->exec($sql);
 	       
@@ -1266,7 +1279,7 @@ class Redbean_Driver_PDO implements RedBean_Driver {
 	            $str = $this->Errormsg();
 	            if ($str != "")
 	            {
-	                echo "<br><b style='color:red'>" . $str . "</b>";
+	                echo "\n<br><b style='color:red'>" . $str . "</b>";
 	            }
 	        }
     	return 0; }
@@ -1565,7 +1578,7 @@ class RedBean_OODB {
 	 */
 	private static $versioninf = "
 		RedBean Object Database layer 
-		VERSION 0.5
+		VERSION 0.6
 		BY G.J.G.T DE MOOIJ
 		LICENSE BSD
 		COPYRIGHT 2009
@@ -3214,20 +3227,27 @@ class RedBean_OODB {
 			$classes = explode(",",$classes);
 			foreach($classes as $c) {
 				$ns = '';
+				$database = false;
 				$names = explode('\\', $c);
 				$className = trim(end($names));
 				if(count($names) > 1)
 				{
-					$ns = 'namespace ' . implode('\\', array_slice($names, 0, -1)) . ";\n";
+					$namespaceString = implode('\\', array_slice($names, 0, -1));
+					$ns = 'namespace ' . $namespaceString . ";\n";
+					$database = str_replace("\\","_", $namespaceString);
+					$tableName = $database . "." . $className;
+				}
+				else {
+					$tableName = $className;
 				}
 				if ($c!=="" && $c!=="null" && !class_exists($c) && 
 								preg_match("/^\s*[A-Za-z_][A-Za-z0-9_]*\s*$/",$className)){ 
 					try{
 						$toeval = $ns . "final class ".$className." extends " . (empty($ns) ? '' : '\\') . "RedBean_Decorator {
-							private static \$__static_property_type = \"".strtolower($className)."\";
+							private static \$__static_property_type = \"".strtolower($tableName)."\";
 							
 							public function __construct(\$id=0, \$lock=false) {
-								parent::__construct('".strtolower($className)."',\$id,\$lock);
+								parent::__construct('".strtolower($tableName)."',\$id,\$lock);
 							}
 							
 							//no late static binding... great..
@@ -3242,6 +3262,22 @@ class RedBean_OODB {
 						}";
 						eval($toeval);	
 						if (!class_exists($c)) return false;
+						
+						//Table is namespaced, do we need to create a database?
+						if ($database) {
+							$db = self::$db;
+							$list = $db->get( self::$writer->getQuery("list_databases") );
+							$dblist = array();
+							foreach($list as $dbitem) {
+								$dblist[ $dbitem["database"] ] = $dbitem["database"];
+							}
+							if (!isset($dbitem[$database])) {
+								//We need to create database as well
+								$db->exec( self::$writer->getQuery("create_database", array("database"=>$database)) );
+							}
+						}
+						
+						
 					}
 					catch(Exception $e){
 						return false;
@@ -3253,6 +3289,7 @@ class RedBean_OODB {
 			}
 			return true;
 		}
+		
 		
 
 
@@ -3643,7 +3680,7 @@ class QueryWriter_MySQL implements QueryWriter {
 
 				//this fellow has no table yet to put his beer on!
 				$createtableSQL = "
-			 CREATE TABLE `$table` (
+			 CREATE TABLE $table (
 			`id` INT( 11 ) UNSIGNED NOT NULL AUTO_INCREMENT ,
 			 PRIMARY KEY ( `id` )
 			 ) ENGINE = MYISAM 
@@ -3651,7 +3688,7 @@ class QueryWriter_MySQL implements QueryWriter {
 			}
 			else {
 				$createtableSQL = "
-			 CREATE TABLE `$table` (
+			 CREATE TABLE $table (
 			`id` INT( 11 ) UNSIGNED NOT NULL AUTO_INCREMENT ,
 			 PRIMARY KEY ( `id` )
 			 ) ENGINE = InnoDB 
@@ -3668,7 +3705,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryWiden( $options ) {
 			extract($options);
-			return "ALTER TABLE `$table` CHANGE `$column` `$column` $newtype ";
+			return "ALTER TABLE $table CHANGE `$column` `$column` $newtype ";
 		}
 
 		/**
@@ -3678,7 +3715,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryAddColumn( $options ) {
 			extract($options);
-			return "ALTER TABLE `$table` ADD `$column` $type ";
+			return "ALTER TABLE $table ADD `$column` $type ";
 		}
 
 		/**
@@ -3692,9 +3729,17 @@ class QueryWriter_MySQL implements QueryWriter {
 			foreach($updatevalues as $u) {
 				$update[] = " `".$u["property"]."` = \"".$u["value"]."\" ";
 			}
-			return "UPDATE `$table` SET ".implode(",",$update)." WHERE id = ".$id;
+			return "UPDATE $table SET ".implode(",",$update)." WHERE id = ".$id;
 		}
 
+		/**
+		 * This query shows the databases in the system
+		 * @return string $sSQLQuery
+		 */
+		private function getQueryShowDatabases() {
+			return "SHOW DATABASES";
+		}
+		
 		/**
 		 *
 		 * @param $options
@@ -3712,7 +3757,7 @@ class QueryWriter_MySQL implements QueryWriter {
 				$insertvalues[$k] = "\"".$v."\"";
 			}
 
-			$insertSQL = "INSERT INTO `$table`
+			$insertSQL = "INSERT INTO $table
 					  ( id, ".implode(",",$insertcolumns)." ) 
 					  VALUES( null, ".implode(",",$insertvalues)." ) ";
 			return $insertSQL;
@@ -3725,7 +3770,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryCreate( $options ) {
 			extract($options);
-			return "INSERT INTO `$table` VALUES(null) ";
+			return "INSERT INTO $table VALUES(null) ";
 		}
 
 		/**
@@ -3834,7 +3879,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryWhere($options) {
 			extract($options);
-			return "select `$table`.id from $table where ";
+			return "select $table.id from $table where ";
 		}
 
 		/**
@@ -4026,7 +4071,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryDescribe( $options ) {
 			extract( $options );
-			return "describe `$table`";
+			return "describe $table";
 		}
 
 		/**
@@ -4046,7 +4091,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryDropColumn( $options ) {
 			extract($options);
-			return "ALTER TABLE `$table` DROP `$property`";
+			return "ALTER TABLE $table DROP `$property`";
 		}
 
 		/**
@@ -4056,7 +4101,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryTestColumn( $options ) {
 			extract($options);
-			return "alter table `$table` add __test  ".$type;
+			return "alter table $table add __test  ".$type;
 		}
 
 		/**
@@ -4066,7 +4111,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryUpdateTest( $options ) {
 			extract($options);
-			return "update `$table` set __test=`$col`";
+			return "update $table set __test=`$col`";
 		}
 
 		/**
@@ -4076,10 +4121,20 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryMeasure( $options ) {
 			extract($options);
-			return "select count(*) as df from `$table` where
+			return "select count(*) as df from $table where
 				strcmp(`$col`,__test) != 0 AND `$col` IS NOT NULL";
 		}
 
+		/**
+		 * Writes a query to create a new database
+		 * @param $params
+		 * @return string $query
+		 */
+		private function getQueryCreateDatabase( $params ) {
+			$database = $params["database"];
+			return "create database `$database` ";
+		}
+		
 		/**
 		 *
 		 * @param $options
@@ -4087,7 +4142,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryRemoveTest($options) {
 			extract($options);
-			return "alter table `$table` change `$col` `$col` ".$type;
+			return "alter table $table change `$col` `$col` ".$type;
 		}
 
 		/**
@@ -4097,7 +4152,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryDropTest($options) {
 			extract($options);
-			return "alter table `$table` drop __test";
+			return "alter table $table drop __test";
 		}
 
 		
@@ -4108,7 +4163,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getIndex1($options) {
 			extract($options);
-			return "ALTER IGNORE TABLE `$table` ADD INDEX $indexname (`$col`)";
+			return "ALTER IGNORE TABLE $table ADD INDEX $indexname (`$col`)";
 		}
 
 		/**
@@ -4118,7 +4173,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getIndex2($options) {
 			extract($options);
-			return "ALTER IGNORE TABLE `$table` DROP INDEX $indexname";
+			return "ALTER IGNORE TABLE $table DROP INDEX $indexname";
 		}
 	
 		/**
@@ -4148,7 +4203,7 @@ class QueryWriter_MySQL implements QueryWriter {
 				$field = implode(",", $fields);
 			}
 			if (!isset($field)) $field="";
-			$sql = "$sql_type ".$field." FROM `$table` ";
+			$sql = "$sql_type ".$field." FROM $table ";
 			if (isset($where)) {
 				if (is_array($where)) {
 					$crit = array();
@@ -4170,8 +4225,14 @@ class QueryWriter_MySQL implements QueryWriter {
 		 * @see RedBean/QueryWriter#getQuery()
 		 */
 		public function getQuery( $queryname, $params=array() ) {
-			//echo "<br><b style='color:yellow'>$queryname</b>";
+		//	echo "\n<br><b style='color:yellow'>$queryname</b>"; //--very useful for debugging
 			switch($queryname) {
+				case "list_databases":
+					return $this->getQueryShowDatabases();
+					break;
+				case "create_database":
+					return $this->getQueryCreateDatabase( $params );
+					break;
 				case "create_table":
 					return $this->getQueryCreateTable($params);
 					break;
@@ -4323,8 +4384,8 @@ class QueryWriter_MySQL implements QueryWriter {
 				case "get_assoc":
 					$col = $params["t1"]."_id";
 					return $this->getBasicQuery(array(
-						"table"=>$params["assoctable"],
-						"fields"=>array( $params["t2"]."_id" ),
+						"table"=>"`".$params["assoctable"]."`",
+						"fields"=>array( "`".$params["t2"]."_id"."`" ),
 						"where"=>array( $col=>$params["id"])
 					));
 					break;
@@ -4347,13 +4408,13 @@ class QueryWriter_MySQL implements QueryWriter {
 					break;
 				case "unassoctype1":
 					$col = $params["t1"]."_id";
-					$r = $this->getBasicQuery(array("table"=>$params["assoctable"],"where"=>array($col=>$params["id"])),"DELETE");
+					$r = $this->getBasicQuery(array("table"=>"`".$params["assoctable"]."`","where"=>array($col=>$params["id"])),"DELETE");
 					//echo "<hr>$r";
 					return $r;
 					break;
 				case "unassoctype2":
 					$col = $params["t1"]."2_id";
-					$r =$this->getBasicQuery(array("table"=>$params["assoctable"],"where"=>array($col=>$params["id"])),"DELETE");
+					$r =$this->getBasicQuery(array("table"=>"`".$params["assoctable"]."`","where"=>array($col=>$params["id"])),"DELETE");
 					//echo "<hr>$r";
 					return $r;		
 					break;
@@ -4776,6 +4837,54 @@ class RedBean_Validator_AlphaNumeric implements RedBean_Validator {
 	 */
 	public function check( $v ) {
 		return (bool) preg_match('/^[A-Za-z0-9]+$/', $v);
+	}
+}
+/**
+ * RedBean Validator Email
+ * @package 		RedBean/Validator/Email.php
+ * @description		Checks whether a value is a valid email address
+ * @author			Gabor de Mooij
+ * @license			BSD
+ */
+class RedBean_Validator_Email implements RedBean_Validator {
+	/**
+	 * (non-PHPdoc)
+	 * @see RedBean/RedBean_Validator#check()
+	 */
+	public function check( $v ) {
+		return (bool) preg_match( "/^([0-9a-zA-Z]([-.\w]*[0-9a-zA-Z])*@([0-9a-zA-Z][-\w]*[0-9a-zA-Z]\.)+[a-zA-Z]{2,9})$/", $v );
+	}
+}
+/**
+ * RedBean Validator Numeric
+ * @package 		RedBean/Validator/Numeric.php
+ * @description		Checks whether a value is numeric
+ * @author			Gabor de Mooij
+ * @license			BSD
+ */
+class RedBean_Validator_Numeric implements RedBean_Validator {
+	/**
+	 * (non-PHPdoc)
+	 * @see RedBean/RedBean_Validator#check()
+	 */
+	public function check( $v ) {
+		return (bool) is_numeric( $v );
+	}
+}
+/**
+ * RedBean Validator URI
+ * @package 		RedBean/Validator/URI.php
+ * @description		Checks whether a value is a valid URI address
+ * @author			Gabor de Mooij
+ * @license			BSD
+ */
+class RedBean_Validator_URI implements RedBean_Validator {
+	/**
+	 * (non-PHPdoc)
+	 * @see RedBean/RedBean_Validator#check()
+	 */
+	public function check( $v ) {
+		return (bool) preg_match( "/^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,6}$/", $v );
 	}
 }
 /**

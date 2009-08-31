@@ -62,7 +62,7 @@ class SmartTest {
 
 //Use this database for tests
 require("allinone.php");
-RedBean_Setup::kickstart("mysql:host=localhost;dbname=oodb","root","",false,"innodb",false);
+RedBean_Setup::kickstart("mysql:host=localhost;dbname=oodb","root","",0,"innodb",0);
 
 
 
@@ -117,6 +117,34 @@ catch(Exception $e) {
 	SmartTest::failedTest();
 }
 
+R::$db->exec("TRUNCATE redbeantables;");
+SmartTest::instance()->testPack = "Namespacing";
+R::gen("Model3,Model4");
+$model3 = new Model3;
+$model4 = new Model4;
+$model3->title = "first model";
+$model4->title = "second model";
+$model3->save();
+$model4->save();
+$model3->add($model4);
+$model3->clearRelatedModel4();
+SmartTest::instance()->test(count($model3->getRelatedModel4()),0);
+R::gen("package1\\package2\\package3\\Model1,package1\\package2\\Model2");
+
+$model1 = new package1\package2\package3\Model1;
+$model2 = new package1\package2\Model2;
+$model1->title = "first model";
+$model2->title = "second model";
+$model1->save();
+$model2->save();
+$model1->add($model2);
+SmartTest::instance()->test(count($model1->command("getRelatedpackage1\\package2\\Model2",array())),1);
+//print_r($model1->command("getRelatedpackage1\\package2\\Model2",array()));
+$model1->command("clearRelatedpackage1\\package2\\Model2",array());
+//print_r($model1->command("getRelatedpackage1\\package2\\Model2",array()));
+SmartTest::instance()->test(count($model1->command("getRelatedpackage1\\package2\\Model2",array())),0);
+
+//exit;
 
 
 SmartTest::instance()->testPack = "Import";

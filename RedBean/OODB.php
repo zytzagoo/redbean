@@ -1669,20 +1669,27 @@ class RedBean_OODB {
 			$classes = explode(",",$classes);
 			foreach($classes as $c) {
 				$ns = '';
+				$database = false;
 				$names = explode('\\', $c);
 				$className = trim(end($names));
 				if(count($names) > 1)
 				{
-					$ns = 'namespace ' . implode('\\', array_slice($names, 0, -1)) . ";\n";
+					$namespaceString = implode('\\', array_slice($names, 0, -1));
+					$ns = 'namespace ' . $namespaceString . ";\n";
+					$database = str_replace("\\","_", $namespaceString);
+					$tableName = $database . "." . $className;
+				}
+				else {
+					$tableName = $className;
 				}
 				if ($c!=="" && $c!=="null" && !class_exists($c) && 
 								preg_match("/^\s*[A-Za-z_][A-Za-z0-9_]*\s*$/",$className)){ 
 					try{
 						$toeval = $ns . "final class ".$className." extends " . (empty($ns) ? '' : '\\') . "RedBean_Decorator {
-							private static \$__static_property_type = \"".strtolower($className)."\";
+							private static \$__static_property_type = \"".strtolower($tableName)."\";
 							
 							public function __construct(\$id=0, \$lock=false) {
-								parent::__construct('".strtolower($className)."',\$id,\$lock);
+								parent::__construct('".strtolower($tableName)."',\$id,\$lock);
 							}
 							
 							//no late static binding... great..
@@ -1697,6 +1704,22 @@ class RedBean_OODB {
 						}";
 						eval($toeval);	
 						if (!class_exists($c)) return false;
+						
+						//Table is namespaced, do we need to create a database?
+						if ($database) {
+							$db = self::$db;
+							$list = $db->get( self::$writer->getQuery("list_databases") );
+							$dblist = array();
+							foreach($list as $dbitem) {
+								$dblist[ $dbitem["database"] ] = $dbitem["database"];
+							}
+							if (!isset($dbitem[$database])) {
+								//We need to create database as well
+								$db->exec( self::$writer->getQuery("create_database", array("database"=>$database)) );
+							}
+						}
+						
+						
 					}
 					catch(Exception $e){
 						return false;
@@ -1708,6 +1731,7 @@ class RedBean_OODB {
 			}
 			return true;
 		}
+		
 		
 
 

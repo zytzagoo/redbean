@@ -53,7 +53,7 @@ class QueryWriter_MySQL implements QueryWriter {
 
 				//this fellow has no table yet to put his beer on!
 				$createtableSQL = "
-			 CREATE TABLE `$table` (
+			 CREATE TABLE $table (
 			`id` INT( 11 ) UNSIGNED NOT NULL AUTO_INCREMENT ,
 			 PRIMARY KEY ( `id` )
 			 ) ENGINE = MYISAM 
@@ -61,7 +61,7 @@ class QueryWriter_MySQL implements QueryWriter {
 			}
 			else {
 				$createtableSQL = "
-			 CREATE TABLE `$table` (
+			 CREATE TABLE $table (
 			`id` INT( 11 ) UNSIGNED NOT NULL AUTO_INCREMENT ,
 			 PRIMARY KEY ( `id` )
 			 ) ENGINE = InnoDB 
@@ -78,7 +78,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryWiden( $options ) {
 			extract($options);
-			return "ALTER TABLE `$table` CHANGE `$column` `$column` $newtype ";
+			return "ALTER TABLE $table CHANGE `$column` `$column` $newtype ";
 		}
 
 		/**
@@ -88,7 +88,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryAddColumn( $options ) {
 			extract($options);
-			return "ALTER TABLE `$table` ADD `$column` $type ";
+			return "ALTER TABLE $table ADD `$column` $type ";
 		}
 
 		/**
@@ -102,9 +102,17 @@ class QueryWriter_MySQL implements QueryWriter {
 			foreach($updatevalues as $u) {
 				$update[] = " `".$u["property"]."` = \"".$u["value"]."\" ";
 			}
-			return "UPDATE `$table` SET ".implode(",",$update)." WHERE id = ".$id;
+			return "UPDATE $table SET ".implode(",",$update)." WHERE id = ".$id;
 		}
 
+		/**
+		 * This query shows the databases in the system
+		 * @return string $sSQLQuery
+		 */
+		private function getQueryShowDatabases() {
+			return "SHOW DATABASES";
+		}
+		
 		/**
 		 *
 		 * @param $options
@@ -122,7 +130,7 @@ class QueryWriter_MySQL implements QueryWriter {
 				$insertvalues[$k] = "\"".$v."\"";
 			}
 
-			$insertSQL = "INSERT INTO `$table`
+			$insertSQL = "INSERT INTO $table
 					  ( id, ".implode(",",$insertcolumns)." ) 
 					  VALUES( null, ".implode(",",$insertvalues)." ) ";
 			return $insertSQL;
@@ -135,7 +143,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryCreate( $options ) {
 			extract($options);
-			return "INSERT INTO `$table` VALUES(null) ";
+			return "INSERT INTO $table VALUES(null) ";
 		}
 
 		/**
@@ -244,7 +252,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryWhere($options) {
 			extract($options);
-			return "select `$table`.id from $table where ";
+			return "select $table.id from $table where ";
 		}
 
 		/**
@@ -436,7 +444,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryDescribe( $options ) {
 			extract( $options );
-			return "describe `$table`";
+			return "describe $table";
 		}
 
 		/**
@@ -456,7 +464,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryDropColumn( $options ) {
 			extract($options);
-			return "ALTER TABLE `$table` DROP `$property`";
+			return "ALTER TABLE $table DROP `$property`";
 		}
 
 		/**
@@ -466,7 +474,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryTestColumn( $options ) {
 			extract($options);
-			return "alter table `$table` add __test  ".$type;
+			return "alter table $table add __test  ".$type;
 		}
 
 		/**
@@ -476,7 +484,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryUpdateTest( $options ) {
 			extract($options);
-			return "update `$table` set __test=`$col`";
+			return "update $table set __test=`$col`";
 		}
 
 		/**
@@ -486,10 +494,20 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryMeasure( $options ) {
 			extract($options);
-			return "select count(*) as df from `$table` where
+			return "select count(*) as df from $table where
 				strcmp(`$col`,__test) != 0 AND `$col` IS NOT NULL";
 		}
 
+		/**
+		 * Writes a query to create a new database
+		 * @param $params
+		 * @return string $query
+		 */
+		private function getQueryCreateDatabase( $params ) {
+			$database = $params["database"];
+			return "create database `$database` ";
+		}
+		
 		/**
 		 *
 		 * @param $options
@@ -497,7 +515,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryRemoveTest($options) {
 			extract($options);
-			return "alter table `$table` change `$col` `$col` ".$type;
+			return "alter table $table change `$col` `$col` ".$type;
 		}
 
 		/**
@@ -507,7 +525,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryDropTest($options) {
 			extract($options);
-			return "alter table `$table` drop __test";
+			return "alter table $table drop __test";
 		}
 
 		
@@ -518,7 +536,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getIndex1($options) {
 			extract($options);
-			return "ALTER IGNORE TABLE `$table` ADD INDEX $indexname (`$col`)";
+			return "ALTER IGNORE TABLE $table ADD INDEX $indexname (`$col`)";
 		}
 
 		/**
@@ -528,7 +546,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getIndex2($options) {
 			extract($options);
-			return "ALTER IGNORE TABLE `$table` DROP INDEX $indexname";
+			return "ALTER IGNORE TABLE $table DROP INDEX $indexname";
 		}
 	
 		/**
@@ -558,7 +576,7 @@ class QueryWriter_MySQL implements QueryWriter {
 				$field = implode(",", $fields);
 			}
 			if (!isset($field)) $field="";
-			$sql = "$sql_type ".$field." FROM `$table` ";
+			$sql = "$sql_type ".$field." FROM $table ";
 			if (isset($where)) {
 				if (is_array($where)) {
 					$crit = array();
@@ -580,8 +598,14 @@ class QueryWriter_MySQL implements QueryWriter {
 		 * @see RedBean/QueryWriter#getQuery()
 		 */
 		public function getQuery( $queryname, $params=array() ) {
-			//echo "<br><b style='color:yellow'>$queryname</b>";
+		//	echo "\n<br><b style='color:yellow'>$queryname</b>"; //--very useful for debugging
 			switch($queryname) {
+				case "list_databases":
+					return $this->getQueryShowDatabases();
+					break;
+				case "create_database":
+					return $this->getQueryCreateDatabase( $params );
+					break;
 				case "create_table":
 					return $this->getQueryCreateTable($params);
 					break;
@@ -733,8 +757,8 @@ class QueryWriter_MySQL implements QueryWriter {
 				case "get_assoc":
 					$col = $params["t1"]."_id";
 					return $this->getBasicQuery(array(
-						"table"=>$params["assoctable"],
-						"fields"=>array( $params["t2"]."_id" ),
+						"table"=>"`".$params["assoctable"]."`",
+						"fields"=>array( "`".$params["t2"]."_id"."`" ),
 						"where"=>array( $col=>$params["id"])
 					));
 					break;
@@ -757,13 +781,13 @@ class QueryWriter_MySQL implements QueryWriter {
 					break;
 				case "unassoctype1":
 					$col = $params["t1"]."_id";
-					$r = $this->getBasicQuery(array("table"=>$params["assoctable"],"where"=>array($col=>$params["id"])),"DELETE");
+					$r = $this->getBasicQuery(array("table"=>"`".$params["assoctable"]."`","where"=>array($col=>$params["id"])),"DELETE");
 					//echo "<hr>$r";
 					return $r;
 					break;
 				case "unassoctype2":
 					$col = $params["t1"]."2_id";
-					$r =$this->getBasicQuery(array("table"=>$params["assoctable"],"where"=>array($col=>$params["id"])),"DELETE");
+					$r =$this->getBasicQuery(array("table"=>"`".$params["assoctable"]."`","where"=>array($col=>$params["id"])),"DELETE");
 					//echo "<hr>$r";
 					return $r;		
 					break;
