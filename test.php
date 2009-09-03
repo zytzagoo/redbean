@@ -62,7 +62,7 @@ class SmartTest {
 
 //Use this database for tests
 require("allinone.php");
-RedBean_Setup::kickstart("mysql:host=localhost;dbname=oodb","root","",0,"innodb",0);
+RedBean_Setup::kickstart("mysql:host=localhost;dbname=oodb","root","",0,"innodb",1);
 
 
 
@@ -117,6 +117,10 @@ catch(Exception $e) {
 	SmartTest::failedTest();
 }
 
+$tables = R::$db->getCol("show tables");
+foreach($tables as $t){
+	R::$db->exec("TRUNACTE `$t`");
+};
 R::$db->exec("TRUNCATE redbeantables;");
 SmartTest::instance()->testPack = "Namespacing";
 R::gen("Model3,Model4");
@@ -144,7 +148,15 @@ $model1->command("clearRelatedpackage1\\package2\\Model2",array());
 //print_r($model1->command("getRelatedpackage1\\package2\\Model2",array()));
 SmartTest::instance()->test(count($model1->command("getRelatedpackage1\\package2\\Model2",array())),0);
 
-//exit;
+$model1b = new package1\package2\package3\Model1;
+$model1b->title="model 1b";
+$model1c = new package1\package2\package3\Model1;
+$model1c->title="model 1c";
+$model1->attach($model1b);
+$model1->attach($model1c);
+print_r( $model1->children() );
+
+exit;
 
 
 SmartTest::instance()->testPack = "Import";

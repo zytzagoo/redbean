@@ -386,7 +386,7 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		private function getQueryDeltreeType($options) {
 			extract( $options );
-			return "DELETE FROM $assoctable WHERE parent_id = $id  OR child_id = $id ";
+			return "DELETE FROM `$assoctable` WHERE parent_id = $id  OR child_id = $id ";
 		}
 
 		/**
@@ -599,6 +599,14 @@ class QueryWriter_MySQL implements QueryWriter {
 		 */
 		public function getQuery( $queryname, $params=array() ) {
 		//	echo "\n<br><b style='color:yellow'>$queryname</b>"; //--very useful for debugging
+			
+			if (isset($params["table"])) {
+				if (strlen($params["table"])>64) {
+					//"hsh".$params["table"]=md5($params["table"]);
+				} 	
+			}
+			
+			
 			switch($queryname) {
 				case "list_databases":
 					return $this->getQueryShowDatabases();
@@ -801,18 +809,18 @@ class QueryWriter_MySQL implements QueryWriter {
 					return $this->getQueryAddChild( $params );
 					break;
 				case "get_children":
-					return $this->getBasicQuery(array("table"=>$params["assoctable"],"fields"=>array("child_id"),
+					return $this->getBasicQuery(array("table"=>"`".$params["assoctable"]."`","fields"=>array("child_id"),
 						"where"=>array("parent_id"=>$params["pid"])));
 					break;
 				case "get_parent":
-					return $this->getBasicQuery(array( "where"=>array("child_id"=>$params["cid"]),"fields"=>array("parent_id"),"table"=>$params["assoctable"]	));
+					return $this->getBasicQuery(array( "where"=>array("child_id"=>$params["cid"]),"fields"=>array("parent_id"),"table"=>"`".$params["assoctable"]."`"	));
 					break;
 				case "remove_child":
 					return $this->getQueryRemoveChild( $params );
 					break;
 				case "num_related":
 					$col = $params["t1"]."_id";
-					return $this->getBasicQuery(array("field"=>"COUNT(1)","table"=>$params["assoctable"],"where"=>array($col=>$params["id"])));
+					return $this->getBasicQuery(array("field"=>"COUNT(1)","table"=>"`".$params["assoctable"]."`","where"=>array($col=>$params["id"])));
 					break;
 				case "drop_tables":
 					return $this->getQueryDropTables( $params );
