@@ -87,7 +87,7 @@ class RedBean_QueryWriter_MySQL implements RedBean_QueryWriter {
 	 * Supported Column Types
 	 */
     public $typeno_sqltype = array(
-    RedBean_QueryWriter_MySQL::C_DATATYPE_BOOL=>" SET('1') ",
+    RedBean_QueryWriter_MySQL::C_DATATYPE_BOOL=>"  TINYINT(1) UNSIGNED ",
 	RedBean_QueryWriter_MySQL::C_DATATYPE_UINT8=>" TINYINT(3) UNSIGNED ",
     RedBean_QueryWriter_MySQL::C_DATATYPE_UINT32=>" INT(11) UNSIGNED ",
   	RedBean_QueryWriter_MySQL::C_DATATYPE_DOUBLE=>" DOUBLE ",
@@ -103,7 +103,7 @@ class RedBean_QueryWriter_MySQL implements RedBean_QueryWriter {
 	 * constants (magic numbers)
 	 */
     public $sqltype_typeno = array(
-	"set('1')"=>RedBean_QueryWriter_MySQL::C_DATATYPE_BOOL,
+	"tinyint(1) unsigned"=>RedBean_QueryWriter_MySQL::C_DATATYPE_BOOL,
     "tinyint(3) unsigned"=>RedBean_QueryWriter_MySQL::C_DATATYPE_UINT8,
     "int(11) unsigned"=>RedBean_QueryWriter_MySQL::C_DATATYPE_UINT32,
     "double" => RedBean_QueryWriter_MySQL::C_DATATYPE_DOUBLE,
@@ -164,20 +164,6 @@ class RedBean_QueryWriter_MySQL implements RedBean_QueryWriter {
     public function __construct( RedBean_Adapter $adapter, $frozen = false ) {
         $this->adapter = $adapter;
 		if (!$frozen) {
-			$this->adapter->exec("DROP TABLE IF EXISTS `dtyp`");
-			try{$this->adapter->exec("SET SESSION SQL_MODE=''");}catch(Exception $e){}
-			$this->adapter->exec("
-					CREATE TABLE IF NOT EXISTS `dtyp` (
-					  `id` int(11) unsigned NOT NULL auto_increment,
-					  `booleanset` set('1'),
-					  `tinyintus` tinyint(3) unsigned NOT NULL,
-					  `intus` int(11) unsigned NOT NULL,
-					  `doubles` double NOT NULL,
-					  `varchar255` varchar(255) NOT NULL,
-					  `text` text NOT NULL,
-					  PRIMARY KEY  (`id`)
-					) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
-			");
 			$this->adapter->exec("
 					CREATE TABLE IF NOT EXISTS `__log` (
 					`id` INT( 11 ) NOT NULL AUTO_INCREMENT PRIMARY KEY ,
@@ -237,23 +223,38 @@ class RedBean_QueryWriter_MySQL implements RedBean_QueryWriter {
 	 * @return integer $type 
 	 */
 	public function scanType( $value ) {
-        $this->adapter->exec( "truncate table dtyp" );
-        $v = "\"".$value."\"";
-        $checktypeSQL = "insert into dtyp VALUES(null,$v,$v,$v,$v,$v,$v )";
-        $this->adapter->exec( $checktypeSQL );
-        $id = $this->adapter->getInsertID();
-		$types = $this->dtypes;
-		array_pop($types);
-        $readtypeSQL = "SELECT ".implode(",",$types)." FROM dtyp WHERE id = $id ";
-		$row = $this->adapter->getRow($readtypeSQL);;
-        $tp = 0;
-        foreach($row as $t=>$tv) {
-            if (strval($tv) === strval($value)) {
-                return $tp;
-            }
-            $tp++;
-        }
-        return $tp;
+		
+		if (is_bool($value) || is_null($value)) {
+			return RedBean_QueryWriter_MySQL::C_DATATYPE_BOOL;
+		}
+
+		if (is_integer($value) && $value >= 0 && $value <= 255 ) {
+			return RedBean_QueryWriter_MySQL::C_DATATYPE_UINT8;
+		}
+
+		if (is_integer($value) && $value >= 0  && $value <= 4294967295 ) {
+			return RedBean_QueryWriter_MySQL::C_DATATYPE_UINT32;
+		}
+
+		if (is_float($value) || $value < 0) {
+			return RedBean_QueryWriter_MySQL::C_DATATYPE_DOUBLE;
+		}
+		if (is_string($value) && strlen($value) <= 255) {
+			return RedBean_QueryWriter_MySQL::C_DATATYPE_TEXT8;
+		}
+		if (is_string($value) && strlen($value) <= 65536) {
+			return RedBean_QueryWriter_MySQL::C_DATATYPE_TEXT16;
+		}
+
+		if (is_string($value) && strlen($value) > 65536) {
+			return RedBean_QueryWriter_MySQL::C_DATATYPE_TEXT32;
+		}
+
+		return 0;
+		
+		
+
+      
     }
 
 	/**

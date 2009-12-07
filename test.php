@@ -722,7 +722,6 @@ $querycounter->counter = 0;
 $redbean3 = new RedBean_Plugin_Cache( $redbean, $toolbox );
 $movie = $redbean3->dispense("movie");
 $movie->name = "cached movie 1";
-//$pdo->setDebugMode(1);
 $movieid = $redbean3->store($movie);
 asrt(($querycounter->counter>0),true);
 $querycounter->counter=0;
@@ -856,7 +855,6 @@ $page = $redbean->dispense("page");
 $page->name = "Just Another Page In a Table";
 $cols = $writer->getColumns("page");
 asrt($cols["name"],"varchar(254)");
-//$pdo->setDebugMode(1);
 $redbean->store( $page );
 pass(); //no crash?
 $cols = $writer->getColumns("page");
@@ -872,14 +870,15 @@ $optimizer = new RedBean_Plugin_Optimizer( $toolbox );
 $redbean->addEventListener("update", $optimizer);
 $writer  = $toolbox->getWriter();
 $cols = $writer->getColumns("one");
+
 asrt($cols["col"],"text");
-$one->col = NULL;
+$one->col = true;
 $redbean->store($one);
 $cols = $writer->getColumns("one");
 asrt($cols["col"],"text");
 $redbean->store($one);
 $cols = $writer->getColumns("one");
-asrt($cols["col"],"set('1')");
+asrt($cols["col"],"tinyint(1) unsigned");
 
 $one->col = str_repeat('a long text',100);
 $redbean->store($one);
@@ -1024,7 +1023,6 @@ asrt($row[0]["c1"],"ipsum lorem");
 $writer->deleteRecord("testtable", $id);
 $row = $writer->selectRecord("testtable", array($id));
 asrt($row,NULL);
-//$pdo->setDebugMode(1);
 $writer->addColumn("testtable", "c2", 2);
 try{ $writer->addUniqueIndex("testtable", array("c1","c2")); fail(); //should fail, no content length blob
 }catch(RedBean_Exception_SQL $e){ pass(); }
